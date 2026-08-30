@@ -1,0 +1,1 @@
+These are sample notes served by the /file endpoint's intended, safe usage.

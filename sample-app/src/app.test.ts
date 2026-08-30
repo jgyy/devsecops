@@ -19,3 +19,19 @@ describe("GET /run (intentionally vulnerable: OS command injection)", () => {
     expect(res.body.output).toBe("injection-proof-12345");
   });
 });
+
+describe("GET /file (intentionally vulnerable: path traversal)", () => {
+  it("serves the intended file by default", async () => {
+    const res = await request(app).get("/file");
+    expect(res.status).toBe(200);
+    expect(res.body.content).toContain("sample notes");
+  });
+
+  it("reads files outside the intended data directory", async () => {
+    const res = await request(app)
+      .get("/file")
+      .query({ name: "../package.json" });
+    expect(res.status).toBe(200);
+    expect(res.body.content).toContain('"name": "sample-app"');
+  });
+});
