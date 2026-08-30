@@ -1,0 +1,44 @@
+name: IaC Misconfiguration Scanning Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  checkov:
+    name: Checkov IaC scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov (blocking gate)
+        uses: bridgecrewio/checkov-action@v12.3122.0
+        with:
+          directory: sample-app
+          framework: dockerfile
+          output_format: cli
+
+      - name: Generate SARIF for Security tab
+        if: always()
+        uses: bridgecrewio/checkov-action@v12.3122.0
+        with:
+          directory: sample-app
+          framework: dockerfile
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov

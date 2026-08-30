@@ -17,7 +17,7 @@ Terms used throughout this README, for readers newer to the DevSecOps space:
 - **CWE (Common Weakness Enumeration)** — a standardized ID for a *class* of vulnerability, e.g. CWE-78 for OS command injection.
 - **CVE (Common Vulnerabilities and Exposures)** — a standardized ID for a *specific, known* vulnerability, usually in a specific version of a specific package, e.g. CVE-2020-8203.
 - **Container image scanning** — scanning a fully *built* container image rather than just an application's own dependency lockfile. This covers the base OS layer (e.g. the Debian or Alpine packages shipped underneath your application code) — an attack surface neither SAST nor SCA can see, since it isn't source code or an npm dependency. Used by the [Container Image Scanning Gate](#4-container-image-scanning-gate).
-- **IaC (Infrastructure as Code)** — defining infrastructure (servers, containers, cloud resources) in version-controlled config files instead of provisioning it by hand.
+- **IaC (Infrastructure as Code)** — defining infrastructure (servers, containers, cloud resources) in version-controlled config files instead of provisioning it by hand. Misconfigurations in these files (e.g. a Dockerfile) are caught by the [IaC Misconfiguration Scanning Gate](#5-iac-misconfiguration-scanning-gate).
 
 ## Features
 
@@ -148,8 +148,6 @@ flowchart LR
 
 The image scan also re-detects the same seeded `lodash@4.17.15` CVEs the SCA gate already catches, since building the image installs the same npm dependencies — that's expected, not a bug: scanning a built artifact naturally re-surfaces application-layer findings too, on top of the OS-layer ones that are unique to this gate. Because both gates use Trivy, each uploads its SARIF under a distinct category (`trivy-fs` vs. `trivy-image`) so the Security tab shows both sets of findings instead of one overwriting the other.
 
-Because of this, **CI on `main` is expected to fail for all four gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all four, published as GitHub code scanning alerts (SARIF).
-
 #### Running it locally
 
 ```bash
@@ -158,4 +156,36 @@ docker build -t sample-app:local .
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.70.0 image --scanners vuln --severity HIGH,CRITICAL sample-app:local
 ```
 
-_More features (CI/CD pipelines, IaC) will be added here as this repo grows._
+### 5. IaC Misconfiguration Scanning Gate
+
+A fifth GitHub Actions pipeline ([`.github/workflows/iac-scan.yml`](.github/workflows/iac-scan.yml)) runs [Checkov](https://www.checkov.io/) against [`sample-app/Dockerfile`](sample-app/Dockerfile) on every push to `main` and every pull request. This is the "infrastructure as code" leg of the shift-left toolchain: it catches insecure *configuration* of infrastructure definitions themselves — before an image is even built — a class of risk none of the other four gates cover, since they analyze application code, dependencies, and the built artifact rather than how that artifact is defined.
+
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B[Checkout]
+    B --> C["Checkov scan sample-app/Dockerfile<br/>(--framework dockerfile)"]
+    C --> D{Misconfigurations?}
+    D -->|"Yes: CKV_DOCKER_2, CKV_DOCKER_3"| E["❌ Blocking gate fails"]
+    D -->|No| F["✅ Gate passes"]
+    C --> G[Generate SARIF report]
+    G --> H["Upload to GitHub Security tab<br/>(runs regardless of pass/fail)"]
+    E --> H
+    F --> H
+```
+
+**Note:** [`sample-app/Dockerfile`](sample-app/Dockerfile) is scanned as-is — no misconfiguration was added for this demo. It already fails 2 of 42 Dockerfile checks, real gaps rather than a fabricated finding:
+
+| Check | Misconfiguration | Checkov ID |
+|---|---|---|
+| Missing healthcheck | No `HEALTHCHECK` instruction, so an unresponsive container can't be detected and restarted automatically | `CKV_DOCKER_2` |
+| Running as root | No `USER` instruction, so the container runs as root by default | `CKV_DOCKER_3` |
+
+Because of this, **CI on `main` is expected to fail for all five gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all five, published as GitHub code scanning alerts (SARIF).
+
+#### Running it locally
+
+```bash
+docker run --rm -v "$(pwd)/sample-app":/tf ghcr.io/bridgecrewio/checkov:3.3.16 -d /tf --framework dockerfile --compact
+```
+
+_More features (CI/CD pipelines) will be added here as this repo grows._
