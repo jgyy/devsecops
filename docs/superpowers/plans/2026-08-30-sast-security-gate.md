@@ -229,6 +229,11 @@ vulnerableRouter.get("/run", (req, res) => {
 });
 ```
 
+> **Note (added post-implementation):** the `node:`-prefixed imports shown
+> above were later changed to bare specifiers (`"child_process"` etc.) —
+> see the actual shipped code in `sample-app/src/routes/vulnerable.ts` for
+> the current version.
+
 - [ ] **Step 4: Mount the router in `sample-app/src/app.ts`**
 
 Edit `sample-app/src/app.ts`, replace:
@@ -389,6 +394,11 @@ vulnerableRouter.get("/file", (req, res) => {
   });
 });
 ```
+
+> **Note (added post-implementation):** the `node:`-prefixed imports shown
+> above were later changed to bare specifiers (`"child_process"` etc.) —
+> see the actual shipped code in `sample-app/src/routes/vulnerable.ts` for
+> the current version.
 
 - [ ] **Step 5: Run the test and confirm it passes**
 
@@ -588,6 +598,10 @@ jobs:
         with:
           sarif_file: semgrep-results.sarif
 ```
+
+> **Note (added post-implementation):** the Semgrep config above was later
+> changed to `--config=p/default` — see `.github/workflows/sast.yml` for
+> the current version.
 
 - [ ] **Step 3: Validate the workflow YAML syntax**
 
