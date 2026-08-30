@@ -8,6 +8,19 @@ A hands-on portfolio repo for practicing **DevOps + Security** skills for job-se
 
 A GitHub Actions pipeline ([`.github/workflows/sast.yml`](.github/workflows/sast.yml)) runs [Semgrep](https://semgrep.dev/) against [`sample-app/`](sample-app/) — a small Express + TypeScript service — on every push to `main` and every pull request. This demonstrates the CI/CD side as much as the security side: the scan is just another gated step in the same pipeline that would run builds, tests, and deploys, not a separate bolt-on process.
 
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B[Checkout]
+    B --> C["Semgrep scan sample-app/<br/>(--config=p/default)"]
+    C --> D{Findings?}
+    D -->|"Yes: CWE-78, CWE-22, CWE-798"| E["❌ Blocking gate fails<br/>(--error)"]
+    D -->|No| F["✅ Gate passes"]
+    C --> G[Generate SARIF report]
+    G --> H["Upload to GitHub Security tab<br/>(runs regardless of pass/fail)"]
+    E --> H
+    F --> H
+```
+
 **Note:** `sample-app/` is *intentionally* vulnerable. It seeds three well-known vulnerability classes on purpose, so the pipeline has real findings to catch:
 
 | Route / file | Vulnerability | CWE |
