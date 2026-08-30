@@ -466,11 +466,16 @@ Expected: FAIL — `./config` cannot be resolved (the file doesn't exist yet), w
 
 - [ ] **Step 3: Create `sample-app/src/config.ts`**
 
-```ts
-// Intentionally vulnerable: a hardcoded credential (CWE-798), seeded so the
-// SAST pipeline's `p/secrets` Semgrep ruleset has a real finding to catch.
-export const STRIPE_API_KEY = "<REDACTED-see-sample-app/src/config.ts-for-the-actual-demo-value>";
-```
+See `sample-app/src/config.ts` for the exact fabricated demo value and its
+"DEMO ONLY — NOT A REAL CREDENTIAL" comment (not reproduced here so this
+plan doc doesn't itself carry a second copy of a vendor-shaped secret
+string — see Note below).
+
+> **Note (added post-implementation):** this plan doc originally quoted the
+> literal fake key inline here. It's been redacted after GitHub's push
+> protection flagged this file as an additional leak location on top of the
+> legitimate one in `config.ts`. The single source of truth for the seeded
+> CWE-798 value is `sample-app/src/config.ts` — see it directly.
 
 - [ ] **Step 4: Reference it from `sample-app/src/app.ts`**
 
