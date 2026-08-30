@@ -2,6 +2,22 @@
 
 A hands-on portfolio repo for practicing **DevOps + Security** skills for job-seeking purposes — CI/CD pipelines, automation, and security tooling built the way a DevSecOps engineer would integrate them, not just security scripts in isolation. Each feature below is a small, self-contained demonstration of one piece of that stack — DevOps-side (pipelines, IaC, containers, deployment automation) and security-side (SAST, SCA, secrets detection, and the rest of the "shift-left" toolchain) alike.
 
+## Terminology
+
+Terms used throughout this README, for readers newer to the DevSecOps space:
+
+- **DevSecOps** — building security checks directly into DevOps pipelines, so vulnerabilities are caught as code is written and shipped rather than in a separate audit after the fact.
+- **CI/CD (Continuous Integration / Continuous Delivery)** — automatically building, testing, and (optionally) deploying code on every push or pull request, instead of doing those steps by hand.
+- **Shift-left** — moving security checks earlier ("left") in the development timeline — into the pipeline itself — instead of leaving them until just before release.
+- **Gate** — a pipeline step that can block a push or PR from passing CI when it fails, as opposed to a check that only reports findings without stopping anything.
+- **SAST (Static Application Security Testing)** — scanning source code itself, without running it, to find vulnerability patterns like injection flaws or hardcoded secrets. Used by the [SAST Security Gate](#1-sast-security-gate).
+- **SCA (Software Composition Analysis)** — scanning third-party dependencies (npm packages, in this repo) against known-vulnerability databases, rather than analyzing code you wrote yourself. Used by the [SCA Dependency Scanning Gate](#3-sca-dependency-scanning-gate).
+- **Secrets detection** — scanning for credentials (API keys, tokens, passwords) accidentally committed to a repo, including ones buried in git history rather than the current files. Used by the [Secrets Detection Gate](#2-secrets-detection-gate).
+- **SARIF (Static Analysis Results Interchange Format)** — a standard JSON format for static analysis findings, which is what lets Semgrep, Gitleaks, and Trivy all publish to GitHub's Security tab in the same way.
+- **CWE (Common Weakness Enumeration)** — a standardized ID for a *class* of vulnerability, e.g. CWE-78 for OS command injection.
+- **CVE (Common Vulnerabilities and Exposures)** — a standardized ID for a *specific, known* vulnerability, usually in a specific version of a specific package, e.g. CVE-2020-8203.
+- **IaC (Infrastructure as Code)** — defining infrastructure (servers, containers, cloud resources) in version-controlled config files instead of provisioning it by hand.
+
 ## Features
 
 ### 1. SAST Security Gate
