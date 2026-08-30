@@ -84,6 +84,20 @@ jobs:
           sarif_file: gitleaks-results.sarif
 ```
 
+> **Note (added post-implementation):** the first live run of this workflow
+> silently passed with "0 commits scanned" instead of failing on the
+> seeded secret. Root cause: inside a `container:` job, `actions/checkout`
+> registers its `safe.directory` git exception under a temporary `HOME` it
+> only uses for its own internal git calls — that exception never reaches
+> the container's real `HOME`, which subsequent `run:` steps use. Gitleaks
+> shells out to `git log` internally, hit git's dubious-ownership check as
+> a result, and treated the failure as "no leaks" rather than erroring —
+> a silent gate bypass. Fixed by adding a
+> `git config --global --add safe.directory "$GITHUB_WORKSPACE"` step
+> between checkout and the Gitleaks steps — see the actual shipped
+> `.github/workflows/secrets-scan.yml` for the current version, and the
+> spec's Revisions section for the full writeup.
+
 - [ ] **Step 3: Validate the workflow YAML syntax**
 
 Run: `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/secrets-scan.yml')); print('valid')"`

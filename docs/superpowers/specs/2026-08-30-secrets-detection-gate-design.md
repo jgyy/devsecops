@@ -135,3 +135,25 @@ two red checks read as an intentional demo, not a broken pipeline.
 - A `.gitleaksignore` demo, if a genuine false positive ever needs
   suppressing — not needed today since the only finding is the
   intentional seed.
+
+## Revisions
+
+The first live CI run exposed a gap this design didn't anticipate: inside
+a `container:` job, `actions/checkout@v4` registers its `safe.directory`
+git-config exception under a *temporary* `HOME` it overrides only for its
+own internal git calls — that exception is never written to the
+container's real `HOME` (`/github/home`), which is what every subsequent
+`run:` step uses. Gitleaks' `git` subcommand shells out to `git log`
+internally, hit git's "dubious ownership" protection as a result, and —
+critically — treated that failure as "0 commits, no leaks" rather than
+erroring out. The blocking gate reported a false green pass on a run that
+never actually scanned anything, which is the exact silent-bypass failure
+mode this feature exists to prevent. Caught by reading the actual run log
+rather than trusting the reported conclusion (see Testing: CI verification
+below).
+
+Fix: an explicit `git config --global --add safe.directory "$GITHUB_WORKSPACE"`
+step between checkout and the Gitleaks steps, added to
+`.github/workflows/secrets-scan.yml`. This writes to the container's own
+ephemeral `$HOME/.gitconfig`, discarded with the job — it does not
+persist or affect anything outside this workflow run.
