@@ -41,4 +41,35 @@ pipx install semgrep   # if you don't already have it (or: pip install --user se
 semgrep scan . --config=p/default
 ```
 
+### 2. Secrets Detection Gate
+
+A second GitHub Actions pipeline ([`.github/workflows/secrets-scan.yml`](.github/workflows/secrets-scan.yml)) runs [Gitleaks](https://github.com/gitleaks/gitleaks) across the repo's **full git history** — not just the current files — on every push to `main` and every pull request. This catches a class of leak the SAST gate can't: a credential that was committed and later deleted or rotated still shows up, because Gitleaks scans every commit's diff, not just the working tree at HEAD.
+
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B["Checkout<br/>(full history: fetch-depth 0)"]
+    B --> C["Gitleaks scan entire repo<br/>across all commits"]
+    C --> D{Leaks found?}
+    D -->|"Yes: stripe-access-token"| E["❌ Blocking gate fails"]
+    D -->|No| F["✅ Gate passes"]
+    C --> G[Generate SARIF report]
+    G --> H["Upload to GitHub Security tab<br/>(runs regardless of pass/fail)"]
+    E --> H
+    F --> H
+```
+
+**Note:** this reuses the same seeded credential the SAST gate already catches — no second fake secret was added. It doubles as a demonstration that one intentional vulnerability can be (and, in a real pipeline, should be) caught by more than one class of tool:
+
+| File | Vulnerability | Detected by |
+|---|---|---|
+| `sample-app/src/config.ts` | Hardcoded Stripe-shaped credential (CWE-798) | Gitleaks `stripe-access-token` rule |
+
+Because of this, **CI on `main` is expected to fail for both gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for either pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from both, published as GitHub code scanning alerts (SARIF).
+
+#### Running it locally
+
+```bash
+docker run --rm -v "$(pwd)":/repo -w /repo zricethezav/gitleaks:v8.30.1 git .
+```
+
 _More features (CI/CD pipelines, IaC, containers, additional scanners) will be added here as this repo grows._
