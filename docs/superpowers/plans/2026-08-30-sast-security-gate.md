@@ -638,7 +638,7 @@ Because of this, **CI on `main` is expected to fail** — that's the point. It p
 cd sample-app
 npm install
 npm test          # runs the app's own test suite (vitest)
-npx semgrep scan . --config=p/owasp-top-ten --config=p/typescript --config=p/secrets
+npx semgrep scan . --config=p/default
 ```
 
 _More features (CI/CD pipelines, IaC, containers, additional scanners) will be added here as this repo grows._
