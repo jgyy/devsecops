@@ -1,4 +1,4 @@
-name: SCA Dependency Scanning Gate
+name: Container Image Scanning Gate
 
 on:
   push:
@@ -12,18 +12,21 @@ permissions:
   security-events: write
 
 jobs:
-  trivy:
-    name: Trivy dependency scan
+  trivy-image:
+    name: Trivy container image scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build sample-app image
+        run: docker build -t sample-app:ci sample-app
+
       - name: Run Trivy (blocking gate)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          scan-type: fs
-          scan-ref: .
+          scan-type: image
+          image-ref: sample-app:ci
           scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: "1"
@@ -32,13 +35,13 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          scan-type: fs
-          scan-ref: .
+          scan-type: image
+          image-ref: sample-app:ci
           scanners: vuln
           severity: HIGH,CRITICAL
           limit-severities-for-sarif: true
           format: sarif
-          output: trivy-results.sarif
+          output: trivy-image-results.sarif
           exit-code: "0"
           skip-setup-trivy: true
 
@@ -46,5 +49,5 @@ jobs:
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy-fs
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image

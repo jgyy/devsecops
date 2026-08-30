@@ -16,6 +16,7 @@ Terms used throughout this README, for readers newer to the DevSecOps space:
 - **SARIF (Static Analysis Results Interchange Format)** — a standard JSON format for static analysis findings, which is what lets Semgrep, Gitleaks, and Trivy all publish to GitHub's Security tab in the same way.
 - **CWE (Common Weakness Enumeration)** — a standardized ID for a *class* of vulnerability, e.g. CWE-78 for OS command injection.
 - **CVE (Common Vulnerabilities and Exposures)** — a standardized ID for a *specific, known* vulnerability, usually in a specific version of a specific package, e.g. CVE-2020-8203.
+- **Container image scanning** — scanning a fully *built* container image rather than just an application's own dependency lockfile. This covers the base OS layer (e.g. the Debian or Alpine packages shipped underneath your application code) — an attack surface neither SAST nor SCA can see, since it isn't source code or an npm dependency. Used by the [Container Image Scanning Gate](#4-container-image-scanning-gate).
 - **IaC (Infrastructure as Code)** — defining infrastructure (servers, containers, cloud resources) in version-controlled config files instead of provisioning it by hand.
 
 ## Features
@@ -112,12 +113,49 @@ flowchart LR
 | `lodash@4.17.15` | Arbitrary code execution via untrusted input in template imports | CVE-2026-4800 | HIGH |
 | `lodash@4.17.15` | Allocation of resources without limits or throttling | NSWG-ECO-516 | HIGH |
 
-Because of this, **CI on `main` is expected to fail for all three gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all three, published as GitHub code scanning alerts (SARIF).
-
 #### Running it locally
 
 ```bash
 docker run --rm -v "$(pwd)":/repo aquasec/trivy:0.70.0 fs --scanners vuln --severity HIGH,CRITICAL /repo
 ```
 
-_More features (CI/CD pipelines, IaC, containers) will be added here as this repo grows._
+### 4. Container Image Scanning Gate
+
+A fourth GitHub Actions pipeline ([`.github/workflows/container-scan.yml`](.github/workflows/container-scan.yml)) builds [`sample-app/Dockerfile`](sample-app/Dockerfile) into a container image and runs [Trivy](https://trivy.dev/) against the *built image* — not just its source or lockfile — on every push to `main` and every pull request. This is the container leg of the shift-left toolchain: it catches known vulnerabilities in the base OS layer that ships underneath the application, a class of risk the SCA gate above can't see because it only scans `sample-app`'s npm lockfile, not the operating system packages a container actually ships with at runtime.
+
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B[Checkout]
+    B --> C["docker build sample-app/"]
+    C --> D["Trivy image scan<br/>(--severity HIGH,CRITICAL)"]
+    D --> E{Vulnerable OS packages?}
+    E -->|"Yes: git, curl, ..."| F["❌ Blocking gate fails"]
+    E -->|No| G["✅ Gate passes"]
+    D --> H[Generate SARIF report]
+    H --> I["Upload to GitHub Security tab<br/>(runs regardless of pass/fail)"]
+    F --> I
+    G --> I
+```
+
+**Note:** [`sample-app/Dockerfile`](sample-app/Dockerfile) pins `FROM node:22.0.0` — a real, unmodified Docker Hub image, not a fabricated finding — as the demo target. Its OS layer (Debian 12.5, as shipped in that tag) is old enough that Trivy's image scan finds **2,588** known OS-package vulnerabilities at scan time (2,344 HIGH, 244 CRITICAL) — far too many for one table, so here's a representative sample:
+
+| Package (OS layer) | Vulnerability | CVE | Severity |
+|---|---|---|---|
+| `git` | Remote code execution via recursive clone | CVE-2024-32002 | CRITICAL |
+| `curl` | Wrong file transfer due to incorrect SMB connection reuse | CVE-2026-5773 | HIGH |
+| `bsdutils` (util-linux) | TOCTOU race in the `mount` program via ancestor directory swap | CVE-2026-53613 | HIGH |
+| `dirmngr` (GnuPG) | Information disclosure and potential arbitrary code execution via out-of-bounds write | CVE-2025-68973 | HIGH |
+
+The image scan also re-detects the same seeded `lodash@4.17.15` CVEs the SCA gate already catches, since building the image installs the same npm dependencies — that's expected, not a bug: scanning a built artifact naturally re-surfaces application-layer findings too, on top of the OS-layer ones that are unique to this gate. Because both gates use Trivy, each uploads its SARIF under a distinct category (`trivy-fs` vs. `trivy-image`) so the Security tab shows both sets of findings instead of one overwriting the other.
+
+Because of this, **CI on `main` is expected to fail for all four gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all four, published as GitHub code scanning alerts (SARIF).
+
+#### Running it locally
+
+```bash
+cd sample-app
+docker build -t sample-app:local .
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.70.0 image --scanners vuln --severity HIGH,CRITICAL sample-app:local
+```
+
+_More features (CI/CD pipelines, IaC) will be added here as this repo grows._
