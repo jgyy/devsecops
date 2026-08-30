@@ -64,12 +64,43 @@ flowchart LR
 |---|---|---|
 | `sample-app/src/config.ts` | Hardcoded Stripe-shaped credential (CWE-798) | Gitleaks `stripe-access-token` rule |
 
-Because of this, **CI on `main` is expected to fail for both gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for either pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from both, published as GitHub code scanning alerts (SARIF).
-
 #### Running it locally
 
 ```bash
 docker run --rm -v "$(pwd)":/repo -w /repo zricethezav/gitleaks:v8.30.1 git .
 ```
 
-_More features (CI/CD pipelines, IaC, containers, additional scanners) will be added here as this repo grows._
+### 3. SCA Dependency Scanning Gate
+
+A third GitHub Actions pipeline ([`.github/workflows/sca-scan.yml`](.github/workflows/sca-scan.yml)) runs [Trivy](https://trivy.dev/) against `sample-app/`'s npm lockfile on every push to `main` and every pull request. This is the "software composition analysis" leg of the shift-left toolchain: it catches known-vulnerable *third-party* packages, a class of risk neither the SAST gate (which analyzes code you wrote) nor the secrets gate (which looks for leaked credentials) covers.
+
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B[Checkout]
+    B --> C["Trivy fs scan sample-app/<br/>(--severity HIGH,CRITICAL)"]
+    C --> D{Vulnerable packages?}
+    D -->|"Yes: lodash@4.17.15"| E["❌ Blocking gate fails"]
+    D -->|No| F["✅ Gate passes"]
+    C --> G[Generate SARIF report]
+    G --> H["Upload to GitHub Security tab<br/>(runs regardless of pass/fail)"]
+    E --> H
+    F --> H
+```
+
+**Note:** `sample-app` pins `lodash@4.17.15` — a real, deliberately outdated dependency, not a fabricated finding — as the demo target:
+
+| Package | Vulnerability | CVE | Severity |
+|---|---|---|---|
+| `lodash@4.17.15` | Prototype pollution in `zipObjectDeep` | CVE-2020-8203 | HIGH |
+| `lodash@4.17.15` | Command injection via template | CVE-2021-23337 | HIGH |
+| `lodash@4.17.15` | Arbitrary code execution via untrusted input in template imports | CVE-2026-4800 | HIGH |
+
+Because of this, **CI on `main` is expected to fail for all three gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all three, published as GitHub code scanning alerts (SARIF).
+
+#### Running it locally
+
+```bash
+docker run --rm -v "$(pwd)/sample-app":/repo aquasec/trivy:latest fs --scanners vuln --severity HIGH,CRITICAL /repo
+```
+
+_More features (CI/CD pipelines, IaC, containers) will be added here as this repo grows._
