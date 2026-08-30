@@ -1,6 +1,6 @@
 # devsecops
 
-A hands-on portfolio repo for practicing **DevOps + Security** skills for job-seeking purposes — CI/CD pipelines, automation, and security tooling built the way a DevSecOps engineer would integrate them, not just security scripts in isolation. Each feature below is a small, self-contained demonstration of one piece of that stack — DevOps-side (pipelines, IaC, containers, deployment automation) and security-side (SAST, SCA, secrets detection, and the rest of the "shift-left" toolchain) alike.
+A hands-on portfolio repo for practicing **DevOps + Security** skills for job-seeking purposes — CI/CD pipelines, automation, and security tooling built the way a DevSecOps engineer would integrate them, not just security scripts in isolation. Each feature below is a small, self-contained demonstration of one piece of that stack — DevOps-side (pipelines, IaC, containers, deployment automation) and security-side (SAST, DAST, SCA, secrets detection, and the rest of the "shift-left" toolchain) alike.
 
 ## Terminology
 
@@ -18,6 +18,7 @@ Terms used throughout this README, for readers newer to the DevSecOps space:
 - **CVE (Common Vulnerabilities and Exposures)** — a standardized ID for a *specific, known* vulnerability, usually in a specific version of a specific package, e.g. CVE-2020-8203.
 - **Container image scanning** — scanning a fully *built* container image rather than just an application's own dependency lockfile. This covers the base OS layer (e.g. the Debian or Alpine packages shipped underneath your application code) — an attack surface neither SAST nor SCA can see, since it isn't source code or an npm dependency. Used by the [Container Image Scanning Gate](#4-container-image-scanning-gate).
 - **IaC (Infrastructure as Code)** — defining infrastructure (servers, containers, cloud resources) in version-controlled config files instead of provisioning it by hand. Misconfigurations in these files (e.g. a Dockerfile) are caught by the [IaC Misconfiguration Scanning Gate](#5-iac-misconfiguration-scanning-gate).
+- **DAST (Dynamic Application Security Testing)** — attacking a *running* application from the outside, the way a real client would, rather than reading its source, dependencies, or config. Catches runtime issues (e.g. missing security headers) that no static gate can see, since nothing is actually executing during a static scan. Used by the [DAST Security Gate](#6-dast-security-gate).
 
 ## Features
 
@@ -180,12 +181,48 @@ flowchart LR
 | Missing healthcheck | No `HEALTHCHECK` instruction, so an unresponsive container can't be detected and restarted automatically | `CKV_DOCKER_2` |
 | Running as root | No `USER` instruction, so the container runs as root by default | `CKV_DOCKER_3` |
 
-Because of this, **CI on `main` is expected to fail for all five gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all five, published as GitHub code scanning alerts (SARIF).
-
 #### Running it locally
 
 ```bash
 docker run --rm -v "$(pwd)/sample-app":/tf ghcr.io/bridgecrewio/checkov:3.3.16 -d /tf --framework dockerfile --compact
+```
+
+### 6. DAST Security Gate
+
+A sixth GitHub Actions pipeline ([`.github/workflows/dast-scan.yml`](.github/workflows/dast-scan.yml)) builds and starts [`sample-app`](sample-app/) as a running container, then runs an [OWASP ZAP](https://www.zaproxy.org/) baseline scan against it on every push to `main` and every pull request. This is the "dynamic" leg of the shift-left toolchain: it attacks the application from the outside the way a real client would, catching runtime issues (like missing HTTP security headers) that none of the other five gates can see — they analyze source, dependencies, images, and config, but nothing is actually *running* during any of those scans.
+
+```mermaid
+flowchart LR
+    A[Push / PR to main] --> B[Checkout]
+    B --> C["docker build sample-app/"]
+    C --> D["Run container, wait for /health"]
+    D --> E["ZAP baseline scan<br/>http://localhost:3000"]
+    E --> F{Alerts found?}
+    F -->|"Yes: WARN-level"| G["❌ Blocking gate fails<br/>(fail_action: true)"]
+    F -->|No| H["✅ Gate passes"]
+    E --> I["Upload HTML/MD/JSON report<br/>as workflow artifact"]
+    G --> I
+    H --> I
+```
+
+**Note:** unlike gates 1–5, ZAP has no native SARIF output, so this gate can't publish to the GitHub Security tab — instead its report (HTML, Markdown, and JSON) is uploaded as a downloadable workflow artifact (`zap-baseline-report`) on every run. `sample-app` is scanned as-is — no vulnerability was seeded for this demo. It already fails 4 real ZAP baseline checks, genuine gaps rather than fabricated findings:
+
+| Check | Finding | Risk | ZAP rule |
+|---|---|---|---|
+| `X-Powered-By` header present | Leaks that the app runs Express, aiding fingerprinting | Low | 10037 |
+| Cache-control not restricted | Responses are storable and cacheable by intermediaries | Informational | 10049 |
+| CSP missing `default-src` fallback | Content-Security-Policy has no fallback directive | Medium | 10055 |
+| No `Permissions-Policy` header | Browser features (camera, geolocation, etc.) aren't explicitly restricted | Low | 10063 |
+
+Because of this, **CI on `main` is expected to fail for all six gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, the [Security tab](../../security/code-scanning) for the combined SARIF findings from gates 1–5, or the `zap-baseline-report` artifact on a DAST run for gate 6's findings.
+
+#### Running it locally
+
+```bash
+cd sample-app
+docker build -t sample-app:local .
+docker run -d -p 3000:3000 --name sample-app sample-app:local
+docker run --rm --network host -v "$(pwd)":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py -t http://localhost:3000
 ```
 
 _More features (CI/CD pipelines) will be added here as this repo grows._
