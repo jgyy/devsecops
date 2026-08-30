@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "./app";
+import { STRIPE_API_KEY } from "./config";
 
 describe("GET /health", () => {
   it("returns ok status", async () => {
@@ -33,5 +34,11 @@ describe("GET /file (intentionally vulnerable: path traversal)", () => {
       .query({ name: "../package.json" });
     expect(res.status).toBe(200);
     expect(res.body.content).toContain('"name": "sample-app"');
+  });
+});
+
+describe("config", () => {
+  it("exposes a Stripe API key in the expected format", () => {
+    expect(STRIPE_API_KEY).toMatch(/^sk_live_/);
   });
 });
