@@ -56,3 +56,10 @@ dkms.conf
 
 # Superpowers subagent-driven-development scratch workspace
 .superpowers/
+
+# Node
+node_modules/
+dist/
+coverage/
+*.log
+.env
