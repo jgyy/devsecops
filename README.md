@@ -94,13 +94,14 @@ flowchart LR
 | `lodash@4.17.15` | Prototype pollution in `zipObjectDeep` | CVE-2020-8203 | HIGH |
 | `lodash@4.17.15` | Command injection via template | CVE-2021-23337 | HIGH |
 | `lodash@4.17.15` | Arbitrary code execution via untrusted input in template imports | CVE-2026-4800 | HIGH |
+| `lodash@4.17.15` | Allocation of resources without limits or throttling | NSWG-ECO-516 | HIGH |
 
 Because of this, **CI on `main` is expected to fail for all three gates** — that's the point of this repo. Check the failed [Actions runs](../../actions) for any pipeline's annotated findings, or the [Security tab](../../security/code-scanning) for the combined findings from all three, published as GitHub code scanning alerts (SARIF).
 
 #### Running it locally
 
 ```bash
-docker run --rm -v "$(pwd)/sample-app":/repo aquasec/trivy:latest fs --scanners vuln --severity HIGH,CRITICAL /repo
+docker run --rm -v "$(pwd)":/repo aquasec/trivy:0.70.0 fs --scanners vuln --severity HIGH,CRITICAL /repo
 ```
 
 _More features (CI/CD pipelines, IaC, containers) will be added here as this repo grows._

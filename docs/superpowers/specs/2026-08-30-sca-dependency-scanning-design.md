@@ -79,8 +79,12 @@ devsecops/
   referenced but not used for real work.
 
 - **`.github/workflows/sca-scan.yml`** — the pipeline. Uses the official
-  `aquasecurity/trivy-action`, pinned to `@0.36.0` (its latest release at
-  design time, confirmed via `gh release list`) — an actual GitHub Action
+  `aquasecurity/trivy-action`, pinned to `@v0.36.0` (its latest release at
+  design time, confirmed via `gh release list`; note the release tag
+  itself is `v`-prefixed even though the release title is not — an early
+  version of this workflow used the unprefixed `@0.36.0`, which is not a
+  resolvable ref and was caught and fixed in the final whole-branch
+  review before this feature was pushed) — an actual GitHub Action
   step rather than a `container:` job, avoiding the `safe.directory`
   class of bug the secrets-detection gate hit with a raw container image.
   Triggers on `push` to `main`, `pull_request` targeting `main`, and
@@ -89,18 +93,28 @@ devsecops/
   prior gates. Steps:
   1. Checkout (`actions/checkout@v4`, default shallow — full history
      isn't needed; Trivy scans the lockfile at HEAD, not commit history).
-  2. `aquasecurity/trivy-action@0.36.0` with `scan-type: fs`,
-     `scan-ref: sample-app`, `severity: HIGH,CRITICAL`, `exit-code: 1` —
-     human-readable table output in the job log; `exit-code: 1` makes
-     this step (and therefore the job) exit non-zero when findings exist.
-     This is the actual gate, run first so it's the step whose pass/fail
-     defines the job's outcome.
-  3. `aquasecurity/trivy-action@0.36.0` again with the same scan
-     parameters plus `format: sarif`, `output: trivy-results.sarif`,
-     `exit-code: 0` — runs regardless of step 2's outcome (`if: always()`);
-     the explicit `exit-code: 0` makes this step always succeed on its
-     own, mirroring how both prior gates' SARIF step can't fail, so only
-     the blocking step in (2) shows red in the GitHub UI.
+  2. `aquasecurity/trivy-action@v0.36.0` with `scan-type: fs`,
+     `scan-ref: .` (repo root, not `sample-app` — Trivy's SARIF paths are
+     relative to `scan-ref`, and GitHub's code-scanning ingestion resolves
+     SARIF paths against the repo root, so scanning from `sample-app`
+     would produce alerts pointing at nonexistent paths), `scanners: vuln`
+     (Trivy's `fs` scan type defaults to `vuln,secret`; without this input
+     it would also re-flag the repo's existing seeded Stripe-shaped secret,
+     already caught by the secrets-detection gate, breaking this gate's
+     attributability to just the seeded dependency), `severity:
+     HIGH,CRITICAL`, `exit-code: 1` — human-readable table output in the
+     job log; `exit-code: 1` makes this step (and therefore the job) exit
+     non-zero when findings exist. This is the actual gate, run first so
+     it's the step whose pass/fail defines the job's outcome.
+  3. `aquasecurity/trivy-action@v0.36.0` again with the same scan
+     parameters plus `limit-severities-for-sarif: true` (the action
+     otherwise silently discards the `severity` filter for SARIF-format
+     output and reports every severity), `format: sarif`, `output:
+     trivy-results.sarif`, `exit-code: 0` — runs regardless of step 2's
+     outcome (`if: always()`); the explicit `exit-code: 0` makes this step
+     always succeed on its own, mirroring how both prior gates' SARIF step
+     can't fail, so only the blocking step in (2) shows red in the GitHub
+     UI.
   4. `github/codeql-action/upload-sarif@v3` — uploads the SARIF file
      (`if: always()`, guarded against forked-repo PRs exactly like the
      other two gates' equivalent step) so findings appear under the
@@ -142,6 +156,13 @@ broken pipeline.
   `CVE-2021-23337` (fixed in 4.17.21), `CVE-2026-4800` (fixed in 4.18.0),
   and `NSWG-ECO-516`. Confirms Trivy's default vulnerability DB reliably
   catches this exact pinned version with no ruleset customization needed.
+- **Dependency placement:** `lodash` must stay in `package.json`'s
+  `dependencies`, not `devDependencies`. Trivy's npm analyzer suppresses
+  dev dependencies by default (`--include-dev-deps` is off unless passed),
+  so moving the seeded package to `devDependencies` would silently make
+  this gate report zero findings and pass — the same class of
+  undetected-bypass failure the secrets gate's "Revisions" section
+  describes for its own `safe.directory` gap.
 - **App-level tests:** no `sample-app` test changes are needed for this
   feature — Trivy scans the lockfile, not app behavior. The existing
   Vitest suite must still pass after `lodash` is added and trivially

@@ -200,20 +200,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Trivy (blocking gate)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
-          scan-ref: sample-app
+          scan-ref: .
+          scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: "1"
 
       - name: Generate SARIF for Security tab
         if: always()
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
-          scan-ref: sample-app
+          scan-ref: .
+          scanners: vuln
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           format: sarif
           output: trivy-results.sarif
           exit-code: "0"
