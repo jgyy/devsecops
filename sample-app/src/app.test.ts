@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import { app } from "./app";
+import { app, bootInfo } from "./app";
 import { STRIPE_API_KEY } from "./config";
 
 describe("GET /health", () => {
@@ -40,5 +40,11 @@ describe("GET /file (intentionally vulnerable: path traversal)", () => {
 describe("config", () => {
   it("exposes a Stripe API key in the expected format", () => {
     expect(STRIPE_API_KEY).toMatch(/^sk_live_/);
+  });
+});
+
+describe("dependencies (intentionally vulnerable: lodash@4.17.15, CVE-2020-8203)", () => {
+  it("exercises the vulnerable zipObjectDeep function at boot", () => {
+    expect(bootInfo).toEqual({ service: "sample-app", status: "ready" });
   });
 });
