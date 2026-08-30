@@ -37,7 +37,7 @@ Because of this, **CI on `main` is expected to fail** — that's the point. It p
 cd sample-app
 npm install
 npm test          # runs the app's own test suite (vitest)
-pip install --user semgrep   # if you don't already have it
+pipx install semgrep   # if you don't already have it (or: pip install --user semgrep)
 semgrep scan . --config=p/default
 ```
 
