@@ -24,7 +24,8 @@ Because of this, **CI on `main` is expected to fail** — that's the point. It p
 cd sample-app
 npm install
 npm test          # runs the app's own test suite (vitest)
-npx semgrep scan . --config=p/default
+pip install --user semgrep   # if you don't already have it
+semgrep scan . --config=p/default
 ```
 
 _More features (CI/CD pipelines, IaC, containers, additional scanners) will be added here as this repo grows._
