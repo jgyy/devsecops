@@ -9,3 +9,13 @@ describe("GET /health", () => {
     expect(res.body).toEqual({ status: "ok" });
   });
 });
+
+describe("GET /run (intentionally vulnerable: OS command injection)", () => {
+  it("executes attacker-controlled shell commands", async () => {
+    const res = await request(app)
+      .get("/run")
+      .query({ cmd: "echo injection-proof-12345" });
+    expect(res.status).toBe(200);
+    expect(res.body.output).toBe("injection-proof-12345");
+  });
+});
