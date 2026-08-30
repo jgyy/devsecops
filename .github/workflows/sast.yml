@@ -23,18 +23,14 @@ jobs:
       - name: Run Semgrep (blocking gate)
         run: |
           semgrep scan sample-app \
-            --config=p/owasp-top-ten \
-            --config=p/typescript \
-            --config=p/secrets \
+            --config=p/default \
             --error
 
       - name: Generate SARIF for Security tab
         if: always()
         run: |
           semgrep scan sample-app \
-            --config=p/owasp-top-ten \
-            --config=p/typescript \
-            --config=p/secrets \
+            --config=p/default \
             --sarif \
             --output=semgrep-results.sarif
 
