@@ -94,9 +94,15 @@ jobs:
 > a result, and treated the failure as "no leaks" rather than erroring —
 > a silent gate bypass. Fixed by adding a
 > `git config --global --add safe.directory "$GITHUB_WORKSPACE"` step
-> between checkout and the Gitleaks steps — see the actual shipped
-> `.github/workflows/secrets-scan.yml` for the current version, and the
-> spec's Revisions section for the full writeup.
+> between checkout and the Gitleaks steps.
+>
+> A second gap was caught by an automated post-push security review:
+> Gitleaks honors inline `// gitleaks:allow` comments by default, so a PR
+> could pair a real secret with that comment and the gate would silently
+> pass it. Fixed by adding `--ignore-gitleaks-allow` to both Gitleaks
+> invocations. See the actual shipped `.github/workflows/secrets-scan.yml`
+> for the current version, and the spec's Revisions section for the full
+> writeup of both gaps.
 
 - [ ] **Step 3: Validate the workflow YAML syntax**
 

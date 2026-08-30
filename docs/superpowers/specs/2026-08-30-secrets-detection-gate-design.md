@@ -157,3 +157,16 @@ step between checkout and the Gitleaks steps, added to
 `.github/workflows/secrets-scan.yml`. This writes to the container's own
 ephemeral `$HOME/.gitconfig`, discarded with the job — it does not
 persist or affect anything outside this workflow run.
+
+A second gap, caught by an automated post-push security review rather
+than live CI, surfaced in the same file: by default Gitleaks honors
+inline `// gitleaks:allow` comments and skips flagging whatever they're
+attached to. Since this workflow runs on `pull_request` as well as
+`push`, anyone able to open a PR could pair a real secret with that
+comment and the blocking gate would silently pass it — the same class of
+undetected-bypass failure as the `safe.directory` gap, just reachable by
+a contributor instead of by a runner-environment quirk. This directly
+contradicts the Non-goals section's "nothing needs to be suppressed."
+Fixed by adding `--ignore-gitleaks-allow` to both Gitleaks invocations in
+`.github/workflows/secrets-scan.yml`, so CI ignores allow-comments
+entirely regardless of what a PR contains.
