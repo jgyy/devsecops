@@ -222,7 +222,7 @@ Because of this, **CI on `main` is expected to fail for all six gates** — that
 cd sample-app
 docker build -t sample-app:local .
 docker run -d -p 3000:3000 --name sample-app sample-app:local
-docker run --rm --network host -v "$(pwd)":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py -t http://localhost:3000
+docker run --rm -t --network host -v "$(pwd)":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py -t http://localhost:3000
 ```
 
 _More features (CI/CD pipelines) will be added here as this repo grows._

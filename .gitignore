@@ -63,3 +63,9 @@ dist/
 coverage/
 *.log
 .env
+
+# OWASP ZAP local scan output (see README "DAST Security Gate" local repro)
+zap.yaml
+report_html.html
+report_md.md
+report_json.json
